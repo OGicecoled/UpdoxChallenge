@@ -1,0 +1,105 @@
+---
+
+- name: Install ELK Software
+  hosts: servers
+  become: yes
+  become_user: root
+  tasks:
+
+  # Vars file for kibana and elasticsearch ports
+  - include_vars: port_vars.yml
+
+  # Java dependency install for Elasticsearch
+  - name: Install Java Dependency
+    yum:
+      name: java-1.8.0-openjdk-devel
+      state: present
+
+  - name: Import ElasticSearch GPG Key
+    rpm_key:
+      state: present
+      key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+  - name: Add ElasticSearch Repository
+    yum_repository:
+      name: Elasticsearch
+      description: "Repo for ElasticSearch"
+      baseurl: https://artifacts.elastic.co/packages/7.x/yum
+      enabled: yes
+      gpgcheck: yes
+
+  # Next 5 plays configure the firewall and install the required software
+  - name: Open Elasticsearch Port
+    firewalld:
+      port: "{{elasticsearchport}}"
+      permanent: true
+      state: enabled
+
+  - name: Open Kibana Port
+    firewalld:
+      port: "{{kibanaport}}"
+      permanent: true
+      state: enabled 
+
+  - name: Install ElasticSearch
+    yum:
+      name: elasticsearch
+      state: latest
+
+  - name: Install Filebeat
+    yum:
+      name: filebeat
+      state: latest
+
+  - name: Install kibana
+    yum:
+      name: kibana
+      state: latest
+
+  # Next 2 plays pull a config file I edited for Filebeat and Kibana. Mostly standard with only a few edits.
+  - name: Create Filebeat config
+    template:
+      src: filebeatconfig.j2
+      dest: /etc/filebeat/filebeat.yml
+
+  - name: Create Kibana config
+    template:
+      src: kibanaconfig.j2
+      dest: /etc/kibana/kibana.yml
+
+  # Reload systemd to make sure it picks up the new services
+  - name: Reload systemd
+    systemd: daemon_reload=yes
+
+  # Last plays enables the services for persistence and restarts them to pick up configs.
+  - name: Enable ElasticSearch Service
+    systemd:
+      name: elasticsearch.service
+      enabled: yes
+
+  - name: Start ElasticSearch Service
+    systemd:
+      name: elasticsearch.service
+      state: restarted
+
+  - name: Enable Filebeat Service
+    systemd:
+      name: filebeat.service
+      enabled: yes
+
+  - name: Start Filebeat Service
+    systemd:
+      name: filebeat.service
+      state: restarted
+
+  - name: Enable Kibana Service
+    systemd:
+      name: kibana.service
+      enabled: yes
+
+  - name: Start Kibana Service
+    systemd:
+      name: kibana.service
+      state: restarted
+
+  

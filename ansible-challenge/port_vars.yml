@@ -1,0 +1,4 @@
+---
+
+elasticsearchport: 9200/tcp
+kibanaport: 5601/tcp
